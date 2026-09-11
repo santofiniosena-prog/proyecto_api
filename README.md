@@ -1,17 +1,62 @@
 # proyecto_api
 
-A new Flutter project.
+Aplicación Flutter con backend Express + MongoDB para gestionar usuarios.
 
-## Getting Started
+## Requisitos
 
-This project is a starting point for a Flutter application.
+- Flutter SDK
+- Node.js 18+
+- npm
+- MongoDB Atlas o una base Mongo accesible
 
-A few resources to get you started if this is your first Flutter project:
+## Backend
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+1. Entra a la carpeta backend:
+   ```bash
+   cd backend
+   ```
+2. Instala dependencias:
+   ```bash
+   npm install
+   ```
+3. Crea tu archivo `.env` usando el ejemplo:
+   ```bash
+   copy .env.example .env
+   ```
+4. Configura `MONGODB_URI` con tu cadena de conexión.
+5. Inicia la API:
+   ```bash
+   npm start
+   ```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+La API queda en:
+- `http://localhost:3000/api/users`
+- `http://localhost:3000/health`
+
+## Flutter
+
+Desde la raíz del proyecto:
+
+```bash
+flutter run -d chrome
+```
+
+La app usa por defecto este backend local:
+`http://localhost:3000/api/users`
+
+Si necesitas apuntar a otra API, puedes sobreescribirlo con:
+
+```bash
+flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:3000/api/users
+```
+
+## Endpoints principales
+
+- `GET /api/users`
+- `POST /api/users`
+- `PUT /api/users/:id`
+- `DELETE /api/users/:id`
+
+## Nota sobre CORS
+
+El backend habilita CORS para permitir peticiones desde Flutter Web en localhost y desde un frontend desplegado con origen permitido.

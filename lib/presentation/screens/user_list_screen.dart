@@ -1,195 +1,366 @@
 import 'package:flutter/material.dart';
 
-import 'package:provider/provider.dart';
-
-import '/presentation/providers/user_provider.dart';
-
 import '../../domain/entities/user_entity.dart';
+import '../providers/user_provider.dart';
 
+class UserListScreen extends StatefulWidget {
+  final UserProvider provider;
 
-class UserListScreen extends StatelessWidget {
+  const UserListScreen({
+    super.key,
+    required this.provider,
+  });
 
-const UserListScreen({super.key});
-
-
-@override
-
-Widget build(BuildContext context) {
-
-final userProvider = context.watch<UserProvider>();
-
-return Scaffold(
-
-appBar: AppBar(title: const Text("CRUD Usuarios")),
-
-body: userProvider.isLoading
-
-? const Center(child: CircularProgressIndicator())
-
-: ListView.builder(
-
-itemCount: userProvider.users.length,
-
-itemBuilder: (context, i) {
-
-final user = userProvider.users[i];
-
-return ListTile(
-
-title: Text(user.name),
-
-subtitle: Text(user.email),
-
-trailing: Row(
-
-mainAxisSize: MainAxisSize.min,
-
-children: [
-
-IconButton(
-
-icon: const Icon(Icons.edit, color: Colors.blue),
-
-onPressed: () => _showUserDialog(context, user: user),
-
-),
-
-IconButton(
-
-icon: const Icon(Icons.delete, color: Colors.red),
-
-onPressed: () => userProvider.deleteUser(user.id!),
-
-),
-
-],
-
-),
-
-);
-
-},
-
-),
-
-floatingActionButton: FloatingActionButton(
-
-onPressed: () => _showUserDialog(context),
-
-child: const Icon(Icons.add),
-
-),
-
-);
-
+  @override
+  State<UserListScreen> createState() => _UserListScreenState();
 }
 
+class _UserListScreenState extends State<UserListScreen> {
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController ageController = TextEditingController();
 
-void _showUserDialog(BuildContext context, {UserEntity? user}) {
+  @override
+  void initState() {
+    super.initState();
 
-final isEditing = user != null;
+    widget.provider.loadUsers();
+  }
 
-final nameCtrl = TextEditingController(text: isEditing ? user.name : "");
+  Future<void> createUser() async {
+    final name = nameController.text.trim();
+    final email = emailController.text.trim();
+    final age = int.tryParse(ageController.text.trim());
 
-final emailCtrl = TextEditingController(text: isEditing ? user.email : "");
+    if (name.isEmpty || email.isEmpty || age == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Completa todos los campos correctamente'),
+        ),
+      );
 
-final ageCtrl =
+      return;
+    }
 
-TextEditingController(text: isEditing ? user.age.toString() : "");
+    try {
+      await widget.provider.addUser(
+        name,
+        email,
+        age,
+      );
 
+      nameController.clear();
+      emailController.clear();
+      ageController.clear();
 
-showDialog(
+      if (mounted) {
+        Navigator.pop(context);
 
-context: context,
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Usuario creado correctamente'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al crear usuario: $e'),
+          ),
+        );
+      }
+    }
+  }
 
-builder: (context) => AlertDialog(
+  Future<void> editUser(UserEntity user) async {
+    final nameController = TextEditingController(text: user.name);
+    final emailController = TextEditingController(text: user.email);
+    final ageController = TextEditingController(text: user.age.toString());
 
-title: Text(isEditing ? "Editar Usuario" : "Nuevo Usuario"),
+    final formKey = GlobalKey<FormState>();
 
-content: SingleChildScrollView(
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Editar usuario'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Nombre'),
+                  validator: (value) =>
+                      value == null || value.trim().isEmpty
+                          ? 'Ingresa el nombre'
+                          : null,
+                ),
+                TextFormField(
+                  controller: emailController,
+                  decoration: const InputDecoration(labelText: 'Correo'),
+                  validator: (value) =>
+                      value == null || value.trim().isEmpty
+                          ? 'Ingresa el correo'
+                          : null,
+                ),
+                TextFormField(
+                  controller: ageController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Edad'),
+                  validator: (value) =>
+                      int.tryParse(value?.trim() ?? '') == null
+                          ? 'Ingresa una edad válida'
+                          : null,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  Navigator.pop(dialogContext, true);
+                }
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        );
+      },
+    );
 
-// <--- PASO 1: Envolver aquí
+    if (shouldSave != true || user.id == null) {
+      nameController.dispose();
+      emailController.dispose();
+      ageController.dispose();
+      return;
+    }
 
-child: Column(
+    try {
+      await widget.provider.updateExistingUser(
+        user.id!,
+        nameController.text.trim(),
+        emailController.text.trim(),
+        int.parse(ageController.text.trim()),
+      );
 
-mainAxisSize: MainAxisSize
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Usuario actualizado correctamente')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al actualizar usuario: $e')),
+        );
+      }
+    } finally {
+      nameController.dispose();
+      emailController.dispose();
+      ageController.dispose();
+    }
+  }
 
-.min, // Esto hace que el diálogo no ocupe toda la pantalla
+  Future<void> deleteUser(UserEntity user) async {
+    if (user.id == null) return;
 
-children: [
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Eliminar usuario'),
+          content: Text('¿Deseas eliminar a ${user.name}?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Eliminar'),
+            ),
+          ],
+        );
+      },
+    );
 
-TextField(
+    if (shouldDelete != true) return;
 
-controller: nameCtrl,
+    try {
+      await widget.provider.deleteUser(user.id!);
 
-decoration: const InputDecoration(labelText: "Nombre")),
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Usuario eliminado correctamente')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al eliminar usuario: $e')),
+        );
+      }
+    }
+  }
 
-const SizedBox(
+  void showCreateUserForm() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Agregar usuario',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
 
-height: 8), // Un pequeño espacio extra no viene mal
+              const SizedBox(height: 20),
 
-TextField(
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Nombre',
+                  border: OutlineInputBorder(),
+                ),
+              ),
 
-controller: emailCtrl,
+              const SizedBox(height: 15),
 
-decoration: const InputDecoration(labelText: "Email")),
+              TextField(
+                controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                  labelText: 'Correo',
+                  border: OutlineInputBorder(),
+                ),
+              ),
 
-const SizedBox(height: 8),
+              const SizedBox(height: 15),
 
-TextField(
+              TextField(
+                controller: ageController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Edad',
+                  border: OutlineInputBorder(),
+                ),
+              ),
 
-controller: ageCtrl,
+              const SizedBox(height: 20),
 
-decoration: const InputDecoration(labelText: "Edad"),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: createUser,
+                  child: const Text('Guardar usuario'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 
-keyboardType: TextInputType.number),
+  @override
+  void dispose() {
+    nameController.dispose();
+    emailController.dispose();
+    ageController.dispose();
 
-],
+    super.dispose();
+  }
 
-),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Usuarios'),
+      ),
 
-),
+      body: AnimatedBuilder(
+        animation: widget.provider,
+        builder: (context, child) {
+          if (widget.provider.isLoading) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
 
-actions: [
+          if (widget.provider.users.isEmpty) {
+            return const Center(
+              child: Text(
+                'No hay usuarios',
+                style: TextStyle(fontSize: 18),
+              ),
+            );
+          }
 
-TextButton(
+          return ListView.builder(
+            itemCount: widget.provider.users.length,
+            itemBuilder: (context, index) {
+              final UserEntity user = widget.provider.users[index];
 
-onPressed: () => Navigator.pop(context),
+              return Card(
+                margin: const EdgeInsets.symmetric(
+                  horizontal: 15,
+                  vertical: 6,
+                ),
+                child: ListTile(
+                  leading: const CircleAvatar(
+                    child: Icon(Icons.person),
+                  ),
+                  title: Text(user.name),
+                  subtitle: Text(
+                    '${user.email}\nEdad: ${user.age}',
+                  ),
+                  isThreeLine: true,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Editar usuario',
+                        onPressed: () => editUser(user),
+                        icon: const Icon(Icons.edit_outlined),
+                      ),
+                      IconButton(
+                        tooltip: 'Eliminar usuario',
+                        onPressed: () => deleteUser(user),
+                        icon: const Icon(Icons.delete_outline),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
 
-child: const Text("Cancelar")),
-
-ElevatedButton(
-
-onPressed: () {
-
-final prov = context.read<UserProvider>();
-
-if (isEditing) {
-
-prov.updateExistingUser(user.id!, nameCtrl.text,
-
-emailCtrl.text, int.parse(ageCtrl.text));
-
-} else {
-
-prov.addUser(
-
-nameCtrl.text, emailCtrl.text, int.parse(ageCtrl.text));
-
-}
-
-Navigator.pop(context);
-
-},
-
-child: const Text("Aceptar")),
-
-],
-
-),
-
-);
-
-}
-
+      floatingActionButton: FloatingActionButton(
+        onPressed: showCreateUserForm,
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
 }

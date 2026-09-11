@@ -9,22 +9,32 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:proyecto_api/main.dart';
+import 'package:proyecto_api/domain/entities/user_entity.dart';
+import 'package:proyecto_api/domain/repositories/user_repository.dart';
+import 'package:proyecto_api/presentation/providers/user_provider.dart';
+
+class FakeUserRepository implements UserRepository {
+  @override
+  Future<List<UserEntity>> getUsers() async => [];
+
+  @override
+  Future<void> createUser(UserEntity user) async {}
+
+  @override
+  Future<void> updateUser(UserEntity user) async {}
+
+  @override
+  Future<void> deleteUser(String id) async {}
+}
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
-
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+  testWidgets('Muestra la pantalla de usuarios', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MyApp(provider: UserProvider(FakeUserRepository())),
+    );
     await tester.pump();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Usuarios'), findsOneWidget);
+    expect(find.byIcon(Icons.add), findsOneWidget);
   });
 }

@@ -1,30 +1,41 @@
 import 'package:flutter/material.dart';
 
 import 'data/repositories/user_repository_imp.dart';
-
+import 'presentation/providers/user_provider.dart';
 import 'presentation/screens/user_list_screen.dart';
 
-import 'presentation/providers/user_provider.dart';
-
-import 'package:provider/provider.dart';
-
-
 void main() {
+  final repository = UserRepositoryImpl();
 
-runApp(MultiProvider(
+  final provider = UserProvider(repository);
 
-providers: [
+  runApp(
+    MyApp(provider: provider),
+  );
+}
 
-ChangeNotifierProvider(
+class MyApp extends StatelessWidget {
+  final UserProvider provider;
 
-create: (_) => UserProvider(UserRepositoryImpl())..loadUsers(),
+  const MyApp({
+    super.key,
+    required this.provider,
+  });
 
-),
-
-],
-
-child: const MaterialApp(home:UserListScreen()),
-
-));
-
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Proyecto API',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue,
+        ),
+        useMaterial3: true,
+      ),
+      home: UserListScreen(
+        provider: provider,
+      ),
+    );
+  }
 }
